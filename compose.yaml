@@ -1,0 +1,16 @@
+services:
+  voice-ai:
+    build: .
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      OLLAMA_URL: http://ollama:11434
+      OLLAMA_MODEL: llama3.2:3b
+    depends_on:
+      - ollama
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama_data:/root/.ollama
+volumes:
+  ollama_data:
