@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FoldNine Voice AI</title>
+<style>
+body{background:#10151c;color:#edf3f9;font:16px system-ui;margin:0;display:grid;place-items:center;min-height:100vh}
+main{width:min(650px,90vw);padding:32px;background:#19232e;border-radius:20px}
+button,input{padding:12px;border-radius:9px;border:0}button{cursor:pointer;background:#a8d4fa;color:#14202d}
+input{width:70%;background:#263645;color:white}#log{min-height:180px;max-height:320px;overflow:auto;white-space:pre-wrap;line-height:1.6}
+.muted{color:#aebdca}
+</style>
+</head>
+<body><main><h1>FoldNine · Voice AI</h1>
+<p class="muted">Browser speech recognition + local Ollama + speech synthesis</p>
+<div id="log" aria-live="polite"></div>
+<form id="form"><input id="message" aria-label="Message" placeholder="Ask a question" required><button>Send</button></form>
+<p><button id="mic">🎙 Speak</button> <button id="stop">Stop voice</button></p>
+<p class="muted" id="status">Ready. Microphone requires a supported browser and localhost/HTTPS.</p>
+</main>
+<script>
+const log=document.querySelector('#log'),status=document.querySelector('#status'),input=document.querySelector('#message');
+let history=[];
+function append(who,msg){log.textContent+=who+': '+msg+'\n\n';log.scrollTop=log.scrollHeight}
+async function send(msg){
+ append('You',msg);status.textContent='Thinking…';
+ try{
+  const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg,history})});
+  const data=await r.json();if(!r.ok)throw Error(data.detail||'Request failed');
+  append('Assistant',data.reply);
+  history.push({role:'user',content:msg},{role:'assistant',content:data.reply});history=history.slice(-12);
+  if('speechSynthesis' in window){speechSynthesis.cancel();speechSynthesis.speak(new SpeechSynthesisUtterance(data.reply))}
+  status.textContent='Ready';
+ }catch(e){status.textContent=e.message}
+}
+document.querySelector('#form').addEventListener('submit',e=>{e.preventDefault();const msg=input.value.trim();if(msg){input.value='';send(msg)}});
+const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+const mic=document.querySelector('#mic');
+if(!SpeechRecognition){mic.disabled=true;status.textContent='Speech recognition unavailable; text chat works.'}
+else{const rec=new SpeechRecognition();rec.lang=navigator.language||'en-US';rec.onresult=e=>send(e.results[0][0].transcript);rec.onerror=e=>status.textContent='Microphone error: '+e.error;mic.onclick=()=>{status.textContent='Listening…';rec.start()}}
+document.querySelector('#stop').onclick=()=>{'speechSynthesis' in window&&speechSynthesis.cancel()};
+</script></body></html>
